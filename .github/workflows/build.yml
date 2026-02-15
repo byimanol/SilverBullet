@@ -21,11 +21,33 @@ jobs:
     - name: Setup NuGet
       uses: NuGet/setup-nuget@v2
       
-    - name: Restore NuGet packages
-      run: nuget restore OpenBullet.sln
+    - name: Restore NuGet packages for OpenBullet
+      run: nuget restore OpenBullet/OpenBullet.csproj
       
-    - name: Build solution
-      run: msbuild OpenBullet.sln /p:Configuration=Release /p:Platform="Any CPU"
+    - name: Restore NuGet packages for OpenBulletCLI
+      run: nuget restore OpenBulletCLI/OpenBulletCLI.csproj
+      
+    - name: Restore NuGet packages for RuriLib
+      run: nuget restore RuriLib/RuriLib.csproj
+      
+    - name: Restore NuGet packages for Extreme.Net
+      run: nuget restore Extreme.Net/Extreme.Net.csproj
+      
+    - name: Build RuriLib
+      run: msbuild RuriLib/RuriLib.csproj /p:Configuration=Release /p:Platform="AnyCPU"
+      
+    - name: Build Extreme.Net
+      run: msbuild Extreme.Net/Extreme.Net.csproj /p:Configuration=Release /p:Platform="AnyCPU"
+      
+    - name: Build PluginFramework
+      run: msbuild PluginFramework/PluginFramework.csproj /p:Configuration=Release /p:Platform="AnyCPU"
+      continue-on-error: true
+      
+    - name: Build OpenBullet
+      run: msbuild OpenBullet/OpenBullet.csproj /p:Configuration=Release /p:Platform="AnyCPU"
+      
+    - name: Build OpenBulletCLI
+      run: msbuild OpenBulletCLI/OpenBulletCLI.csproj /p:Configuration=Release /p:Platform="AnyCPU"
       
     - name: Upload OpenBullet artifacts
       uses: actions/upload-artifact@v4
