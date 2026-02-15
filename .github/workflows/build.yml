@@ -1,0 +1,40 @@
+name: Build SilverBullet
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup MSBuild
+      uses: microsoft/setup-msbuild@v2
+      
+    - name: Setup NuGet
+      uses: NuGet/setup-nuget@v2
+      
+    - name: Restore NuGet packages
+      run: nuget restore OpenBullet.sln
+      
+    - name: Build solution
+      run: msbuild OpenBullet.sln /p:Configuration=Release /p:Platform="Any CPU"
+      
+    - name: Upload OpenBullet artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: OpenBullet-Release
+        path: OpenBullet/bin/Release/
+        
+    - name: Upload OpenBulletCLI artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: OpenBulletCLI-Release
+        path: OpenBulletCLI/bin/Release/
