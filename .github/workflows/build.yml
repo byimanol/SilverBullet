@@ -9,11 +9,13 @@ on:
 
 jobs:
   build:
-    runs-on: windows-latest
+    runs-on: windows-2019  # Equivalente a Visual Studio 2017
     
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+      with:
+        submodules: recursive  # Equivalente a git submodule update --init --recursive
       
     - name: Setup MSBuild
       uses: microsoft/setup-msbuild@v2
@@ -21,70 +23,70 @@ jobs:
     - name: Setup NuGet
       uses: NuGet/setup-nuget@v2
       
-    - name: Restore all NuGet packages from solution
-      run: nuget restore OpenBullet.sln -PackagesDirectory packages
-      continue-on-error: true
-      
-    - name: Restore packages for each project individually
+    - name: Get commit count (REV)
+      id: rev
       run: |
-        Get-ChildItem -Recurse -Filter packages.config | ForEach-Object {
-          Write-Host "Restoring packages for: $($_.DirectoryName)"
-          nuget restore $_.FullName -PackagesDirectory packages
+        $rev = git rev-list --count HEAD
+        echo "REV=$rev" >> $env:GITHUB_ENV
+        echo "Commit count: $rev"
+      shell: pwsh
+      
+    - name: Restore NuGet packages
+      run: nuget restore OpenBullet.sln
+      
+    - name: Build solution
+      run: msbuild OpenBullet.sln /p:Configuration=Release /p:Platform="Any CPU" /verbosity:normal
+      
+    - name: Move driver files to bin folder
+      run: |
+        # Crear directorio bin si no existe
+        New-Item -ItemType Directory -Force -Path "openbullet\bin\release\bin"
+        
+        # Mover chromedriver.exe si existe
+        if (Test-Path "openbullet\bin\release\chromedriver.exe") {
+          Move-Item -Force "openbullet\bin\release\chromedriver.exe" "openbullet\bin\release\bin\"
+          Write-Host "Moved chromedriver.exe"
+        } else {
+          Write-Host "chromedriver.exe not found"
+        }
+        
+        # Mover geckodriver.exe si existe
+        if (Test-Path "openbullet\bin\release\geckodriver.exe") {
+          Move-Item -Force "openbullet\bin\release\geckodriver.exe" "openbullet\bin\release\bin\"
+          Write-Host "Moved geckodriver.exe"
+        } else {
+          Write-Host "geckodriver.exe not found"
         }
       shell: pwsh
       continue-on-error: true
       
-    - name: Build Extreme.Net
-      run: msbuild Extreme.Net/Extreme.Net.csproj /p:Configuration=Release /p:Platform=AnyCPU
-      continue-on-error: true
+    - name: Create ZIP archive
+      run: |
+        # Comprimir la carpeta release
+        Compress-Archive -Path "openbullet\bin\release\*" -DestinationPath "OpenBullet.zip" -Force
+        Write-Host "Created OpenBullet.zip"
+      shell: pwsh
       
-    - name: Build PluginFramework
-      run: msbuild PluginFramework/PluginFramework.csproj /p:Configuration=Release /p:Platform=AnyCPU
-      continue-on-error: true
-      
-    - name: Build SilverBullet.ImageProcessor
-      run: msbuild SilverBullet.ImageProcessor/SilverBullet.ImageProcessor.csproj /p:Configuration=Release /p:Platform=AnyCPU
-      continue-on-error: true
-      
-    - name: Build SilverBullet.Tesseract
-      run: msbuild SilverBullet.Tesseract/SilverBullet.Tesseract.csproj /p:Configuration=Release /p:Platform=AnyCPU
-      continue-on-error: true
-      
-    - name: Build Tesseract
-      run: msbuild Tesseract/Tesseract.csproj /p:Configuration=Release /p:Platform=AnyCPU
-      continue-on-error: true
-      
-    - name: Build RuriLib
-      run: msbuild RuriLib/RuriLib.csproj /p:Configuration=Release /p:Platform=AnyCPU
-      continue-on-error: true
-      
-    - name: Build SilverBullet (OpenBullet)
-      run: msbuild OpenBullet/SilverBullet.csproj /p:Configuration=Release /p:Platform=AnyCPU
-      
-    - name: Build OpenBulletCLI
-      run: msbuild OpenBulletCLI/OpenBulletCLI.csproj /p:Configuration=Release /p:Platform=AnyCPU
-      
-    - name: Build SilverBulletUpdater
-      run: msbuild SilverBulletUpdater/SilverBulletUpdater.csproj /p:Configuration=Release /p:Platform=AnyCPU
-      continue-on-error: true
-      
-    - name: Upload SilverBullet artifacts
+    - name: Upload OpenBullet ZIP artifact
       uses: actions/upload-artifact@v4
       with:
-        name: SilverBullet-Release
-        path: OpenBullet/bin/Release/
-        if-no-files-found: warn
+        name: OpenBullet
+        path: OpenBullet.zip
         
-    - name: Upload OpenBulletCLI artifacts
+    - name: Upload Release folder artifact
       uses: actions/upload-artifact@v4
       with:
-        name: OpenBulletCLI-Release
-        path: OpenBulletCLI/bin/Release/
-        if-no-files-found: warn
+        name: OpenBullet-Release-Folder
+        path: openbullet/bin/release/
         
-    - name: Upload SilverBulletUpdater artifacts
-      uses: actions/upload-artifact@v4
+    - name: Create Release
+      if: github.ref == 'refs/heads/master' && github.event_name == 'push'
+      uses: softprops/action-gh-release@v1
       with:
-        name: SilverBulletUpdater-Release
-        path: SilverBulletUpdater/bin/Release/
-        if-no-files-found: warn
+        tag_name: 1.2.2#${{ env.REV }}
+        name: Release 1.2.2#${{ env.REV }}
+        files: OpenBullet.zip
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
