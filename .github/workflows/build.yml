@@ -9,13 +9,13 @@ on:
 
 jobs:
   build:
-    runs-on: windows-2019  # Equivalente a Visual Studio 2017
+    runs-on: windows-2019
     
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
       with:
-        submodules: recursive  # Equivalente a git submodule update --init --recursive
+        submodules: recursive
       
     - name: Setup MSBuild
       uses: microsoft/setup-msbuild@v2
@@ -31,6 +31,58 @@ jobs:
         echo "Commit count: $rev"
       shell: pwsh
       
+    - name: Fix duplicate Solution Items in .sln file
+      run: |
+        Write-Host "Fixing OpenBullet.sln..."
+        $slnContent = Get-Content "OpenBullet.sln" -Raw
+        
+        # Buscar todas las secciones "Solution Items"
+        $pattern = 'Project\("{2150E333-8FDC-42A3-9474-1A3956D46DE8}"\) = "Solution Items"'
+        $matches = [regex]::Matches($slnContent, $pattern)
+        
+        if ($matches.Count -gt 1) {
+          Write-Host "Found $($matches.Count) 'Solution Items' sections. Removing duplicates..."
+          
+          # Leer línea por línea y eliminar secciones duplicadas
+          $lines = Get-Content "OpenBullet.sln"
+          $newLines = @()
+          $skipUntilEndProject = $false
+          $solutionItemsCount = 0
+          
+          for ($i = 0; $i -lt $lines.Count; $i++) {
+            $line = $lines[$i]
+            
+            # Detectar inicio de Solution Items
+            if ($line -match 'Project\("{2150E333-8FDC-42A3-9474-1A3956D46DE8}"\) = "Solution Items"') {
+              $solutionItemsCount++
+              
+              # Mantener solo el primero, saltar los demás
+              if ($solutionItemsCount -gt 1) {
+                Write-Host "Removing duplicate Solution Items section #$solutionItemsCount"
+                $skipUntilEndProject = $true
+                continue
+              }
+            }
+            
+            # Si estamos saltando, buscar EndProject
+            if ($skipUntilEndProject) {
+              if ($line -match "^EndProject") {
+                $skipUntilEndProject = $false
+              }
+              continue
+            }
+            
+            $newLines += $line
+          }
+          
+          # Guardar archivo modificado
+          $newLines | Set-Content "OpenBullet.sln" -Encoding UTF8
+          Write-Host "Fixed OpenBullet.sln - removed duplicate Solution Items"
+        } else {
+          Write-Host "No duplicate Solution Items found"
+        }
+      shell: pwsh
+      
     - name: Restore NuGet packages
       run: nuget restore OpenBullet.sln
       
@@ -39,30 +91,22 @@ jobs:
       
     - name: Move driver files to bin folder
       run: |
-        # Crear directorio bin si no existe
         New-Item -ItemType Directory -Force -Path "openbullet\bin\release\bin"
         
-        # Mover chromedriver.exe si existe
         if (Test-Path "openbullet\bin\release\chromedriver.exe") {
           Move-Item -Force "openbullet\bin\release\chromedriver.exe" "openbullet\bin\release\bin\"
           Write-Host "Moved chromedriver.exe"
-        } else {
-          Write-Host "chromedriver.exe not found"
         }
         
-        # Mover geckodriver.exe si existe
         if (Test-Path "openbullet\bin\release\geckodriver.exe") {
           Move-Item -Force "openbullet\bin\release\geckodriver.exe" "openbullet\bin\release\bin\"
           Write-Host "Moved geckodriver.exe"
-        } else {
-          Write-Host "geckodriver.exe not found"
         }
       shell: pwsh
       continue-on-error: true
       
     - name: Create ZIP archive
       run: |
-        # Comprimir la carpeta release
         Compress-Archive -Path "openbullet\bin\release\*" -DestinationPath "OpenBullet.zip" -Force
         Write-Host "Created OpenBullet.zip"
       shell: pwsh
