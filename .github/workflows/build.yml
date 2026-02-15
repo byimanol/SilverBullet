@@ -21,38 +21,42 @@ jobs:
     - name: Setup NuGet
       uses: NuGet/setup-nuget@v2
       
-    - name: Restore NuGet packages for OpenBullet
-      run: nuget restore OpenBullet/OpenBullet.csproj
-      
-    - name: Restore NuGet packages for OpenBulletCLI
-      run: nuget restore OpenBulletCLI/OpenBulletCLI.csproj
-      
     - name: Restore NuGet packages for RuriLib
-      run: nuget restore RuriLib/RuriLib.csproj
+      run: nuget restore RuriLib/RuriLib.csproj -PackagesDirectory packages
       
     - name: Restore NuGet packages for Extreme.Net
-      run: nuget restore Extreme.Net/Extreme.Net.csproj
+      run: nuget restore Extreme.Net/Extreme.Net.csproj -PackagesDirectory packages
       
-    - name: Build RuriLib
-      run: msbuild RuriLib/RuriLib.csproj /p:Configuration=Release /p:Platform="AnyCPU"
-      
-    - name: Build Extreme.Net
-      run: msbuild Extreme.Net/Extreme.Net.csproj /p:Configuration=Release /p:Platform="AnyCPU"
-      
-    - name: Build PluginFramework
-      run: msbuild PluginFramework/PluginFramework.csproj /p:Configuration=Release /p:Platform="AnyCPU"
+    - name: Restore NuGet packages for PluginFramework
+      run: nuget restore PluginFramework/PluginFramework.csproj -PackagesDirectory packages
       continue-on-error: true
       
-    - name: Build OpenBullet
-      run: msbuild OpenBullet/OpenBullet.csproj /p:Configuration=Release /p:Platform="AnyCPU"
+    - name: Restore NuGet packages for SilverBullet
+      run: nuget restore OpenBullet/SilverBullet.csproj -PackagesDirectory packages
+      
+    - name: Restore NuGet packages for OpenBulletCLI
+      run: nuget restore OpenBulletCLI/OpenBulletCLI.csproj -PackagesDirectory packages
+      
+    - name: Build RuriLib
+      run: msbuild RuriLib/RuriLib.csproj /p:Configuration=Release /p:Platform=AnyCPU /p:TargetFrameworkVersion=v4.7.2
+      
+    - name: Build Extreme.Net
+      run: msbuild Extreme.Net/Extreme.Net.csproj /p:Configuration=Release /p:Platform=AnyCPU /p:TargetFrameworkVersion=v4.7.2
+      
+    - name: Build PluginFramework
+      run: msbuild PluginFramework/PluginFramework.csproj /p:Configuration=Release /p:Platform=AnyCPU /p:TargetFrameworkVersion=v4.7.2
+      continue-on-error: true
+      
+    - name: Build SilverBullet (OpenBullet)
+      run: msbuild OpenBullet/SilverBullet.csproj /p:Configuration=Release /p:Platform=AnyCPU /p:TargetFrameworkVersion=v4.7.2
       
     - name: Build OpenBulletCLI
-      run: msbuild OpenBulletCLI/OpenBulletCLI.csproj /p:Configuration=Release /p:Platform="AnyCPU"
+      run: msbuild OpenBulletCLI/OpenBulletCLI.csproj /p:Configuration=Release /p:Platform=AnyCPU /p:TargetFrameworkVersion=v4.7.2
       
-    - name: Upload OpenBullet artifacts
+    - name: Upload SilverBullet artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: OpenBullet-Release
+        name: SilverBullet-Release
         path: OpenBullet/bin/Release/
         
     - name: Upload OpenBulletCLI artifacts
